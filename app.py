@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date
 from pawpal_system import Owner, Pet, Task, Scheduler
+from rag_engine import run_rag
 
 # Initialize persistent app state once
 if "owner_obj" not in st.session_state:
@@ -17,6 +18,7 @@ scheduler: Scheduler = st.session_state.scheduler_obj
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
+
 
 st.markdown("""This demo uses your scheduler logic (sorting, filtering, recurring and conflict detection).""")
 
@@ -118,4 +120,61 @@ else:
 
     else:
         st.info("No scheduled tasks yet.")
+
+st.divider()
+
+# ── AI CARE ADVISOR (RAG) ──────────────────────────────────────────────────
+# Flow (matches your architecture diagram):
+#   User picks pet → RAG retrieves facts → Claude generates schedule → User reviews
+# ──────────────────────────────────────────────────────────────────────────
+st.subheader("🐾 AI Care Advisor")
+st.markdown("Ask the AI for a personalized care schedule based on your pet's info.")
+
+if not owner.get_pets():
+    st.info("Add a pet above to use the AI Care Advisor.")
+else:
+    ai_pet_choices = {p.name: p for p in owner.get_pets()}
+    ai_selected_name = st.selectbox("Select a pet for AI advice", list(ai_pet_choices.keys()), key="ai_pet_select")
+    ai_pet = ai_pet_choices[ai_selected_name]
+
+    # Clear stored results when the user switches to a different pet
+    if st.session_state.get("rag_last_pet") != ai_pet.pet_id:
+        st.session_state["rag_results"] = None
+        st.session_state["rag_last_pet"] = ai_pet.pet_id
+
+    if st.button("Get AI Care Advice"):
+        with st.spinner(f"Searching care knowledge for {ai_pet.name}..."):
+            schedule_text, retrieved_facts, confidence = run_rag(
+                pet_name=ai_pet.name,
+                species=ai_pet.species,
+                breed=ai_pet.breed,
+                age=ai_pet.age,
+            )
+            st.session_state["rag_results"] = {
+                "pet_id": ai_pet.pet_id,
+                "schedule": schedule_text,
+                "facts": retrieved_facts,
+                "confidence": confidence,
+            }
+
+    # Show results only if they belong to the currently selected pet
+    result = st.session_state.get("rag_results")
+    if result and result["pet_id"] == ai_pet.pet_id:
+        confidence = result["confidence"]
+
+        # Show confidence score with a colour indicator
+        if confidence >= 0.75:
+            st.success(f"Confidence Score: {confidence} — High match. Breed-specific facts found.")
+        elif confidence >= 0.4:
+            st.warning(f"Confidence Score: {confidence} — Medium match. Try entering the full breed name for better results.")
+        else:
+            st.error(f"Confidence Score: {confidence} — Low match. This breed may not be in the knowledge base yet.")
+
+        st.markdown("#### Facts Retrieved from Knowledge Base")
+        st.caption("These are the care tips matched to your pet:")
+        for fact in result["facts"]:
+            st.markdown(f"- {fact}")
+        st.markdown("#### Care Guide")
+        st.success(result["schedule"])
+        st.info("Review the guide above, then manually add the tasks you want using the Task input section above.")
 
