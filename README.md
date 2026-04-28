@@ -6,7 +6,7 @@ I built PawPal+ as part of my CodePath Applied AI Systems course. It started as 
 
 ## Demo Walkthrough
 
-> 🎥 **Loom video:** [Add your Loom link here after recording]
+> 🎥 **Loom video:** > 🎥 **Demo Video:** [Watch the PawPal+ Demo](https://www.loom.com/share/2f1491a86a59419d89a59c5180c6f0e3)
 
 **Screenshot walkthrough:**
 
